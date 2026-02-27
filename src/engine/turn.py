@@ -1,0 +1,1 @@
+allow_all_moves = True
