@@ -89,3 +89,47 @@ def apply_move(board, start, end):
         board[end_row][end_col] = "light_king"
 
     return validation
+
+
+# Check if a piece at position has any capturing jumps
+def has_jump_from(board, position):
+    row, col = position
+    piece = board[row][col]
+    if piece is None:
+        return False
+
+    steps = _allowed_steps(piece)
+    # Possible row offsets for jump are step*2 for each allowed step
+    for rstep in steps:
+        for cstep in (-1, 1):
+            mid_row = row + rstep
+            mid_col = col + cstep
+            to_row = row + rstep * 2
+            to_col = col + cstep * 2
+
+            if not _in_bounds(mid_row, mid_col) or not _in_bounds(to_row, to_col):
+                continue
+
+            jumped = board[mid_row][mid_col]
+            dest = board[to_row][to_col]
+            if jumped is None or dest is not None:
+                continue
+            if _side(jumped) == _side(piece):
+                continue
+            return True
+
+    return False
+
+
+# Check if any piece belonging to a side has a jump
+def any_jump_for_side(board, side):
+    for r in range(len(board)):
+        for c in range(len(board[r])):
+            piece = board[r][c]
+            if piece is None:
+                continue
+            if piece.split("_")[0] != side:
+                continue
+            if has_jump_from(board, (r, c)):
+                return True
+    return False
