@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 import sys
 import tkinter as tk
@@ -12,6 +13,7 @@ from engine.turn import side_to_move, switch_turn, piece_belongs_to_side
 from engine.initial_state import create_initial_board
 from ui.board_view import BoardTheme, board_pixel_size, draw_board
 from ui.man_view import draw_pieces
+from engine.actions import cpu_move, _terminal_test
 
 class CheckersApp:
     #Set up state and ui elements
@@ -21,6 +23,7 @@ class CheckersApp:
         self.theme = BoardTheme()
         self.board = create_initial_board()
         self.selected = None
+        self.game_over = False
         self.forced_continuation = False # When True, the player must continue jumping with the selected piece
 
         size = board_pixel_size(self.theme)
@@ -61,7 +64,10 @@ class CheckersApp:
         side = side_to_move()
         title = "Dark side's turn!" if side == "dark" else "Light side's turn!"
         # Subtitle hints
-        if self.forced_continuation:
+        if _terminal_test(self.board, player = "CPU" if side == "dark" else "HUMAN" ):
+            subtitle = "Game Over"
+            self.game_over = True
+        elif self.forced_continuation:
             subtitle = "Must finish available jump move(s) to end turn."
         elif any_jump_for_side(self.board, side):
             subtitle = "Must make available jump move(s)."
@@ -152,6 +158,14 @@ class CheckersApp:
             switch_turn()
 
         self.redraw()
+
+        if side_to_move() == "dark":
+            move, validation = cpu_move(self.board)
+            # Allow CPU to chain jumps
+            while validation["captured"] and has_jump_from(self.board, move[1]):
+                move, validation = cpu_move(self.board)
+            switch_turn()
+            self.redraw()
 
 if __name__ == "__main__":
     app_root = tk.Tk()

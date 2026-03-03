@@ -1,3 +1,7 @@
+import math
+import time
+import copy
+
 from engine.initial_state import board_size
 
 #Check if row and col are inside board limits
@@ -90,6 +94,126 @@ def apply_move(board, start, end):
 
     return validation
 
+# alpha beta cutoff search to determine best move for the cpu
+def cpu_move(board):
+    def max_value(state, alpha, beta, depth):
+        if _terminal_test(state, "CPU") or depth == 5:
+            return _utility(state, "CPU")
+        v = -math.inf
+        for move, validation in _game_actions(state, "CPU"):
+            new_state = copy.deepcopy(state)
+            apply_move(new_state, move[0], move[1])
+            # If capture move is available after a capture move, do not increase depth and treat it as one state
+            if validation["captured"] and has_jump_from(new_state, move[1]):
+                v = max(v, max_value(new_state, alpha, beta, depth))
+            else:
+                v = max(v, min_value(new_state, alpha, beta, depth + 1))
+            if v >= beta:
+                return v
+            alpha = max(alpha, v)
+        return v
+
+    def min_value(state, alpha, beta, depth):
+        if _terminal_test(state, "HUMAN") or depth == 5:
+            return _utility(state, "CPU")
+        v = math.inf
+        for move, validation in _game_actions(state, "HUMAN"):
+            new_state = copy.deepcopy(state)
+            apply_move(new_state, move[0], move[1])
+            if validation["captured"] and has_jump_from(new_state, move[1]):
+                v = min(v, min_value(new_state, alpha, beta, depth))
+            else:
+                v = min(v, max_value(new_state, alpha, beta, depth + 1))
+
+            if v <= alpha:
+                return v
+            beta = min(beta, v)
+        return v
+
+    best_score = -math.inf
+    beta = math.inf
+    best_action = None
+    for move, validation in _game_actions(board, "CPU"):
+        new_state = copy.deepcopy(board)
+        apply_move(new_state, move[0], move[1])
+        if validation["captured"] and has_jump_from(new_state, move[1]):
+            v = max_value(new_state, best_score, beta, 1)
+        else:
+            v = min_value(new_state, best_score, beta, 1)
+        if v > best_score:
+            best_score = v
+            best_action = move
+
+    print("Best action:", best_action)
+    time.sleep(1)
+    return best_action, apply_move(board, best_action[0], best_action[1])
+
+# Helper function to create valid actions for a player given the board
+def _game_actions(board, player):
+    piece_side = "light"
+    if player == "CPU":
+        piece_side = "dark"
+
+    moves = []
+
+    for row in range(board_size):
+        for col in range(board_size):
+            tile = board[row][col]
+            if tile is None or _side(tile) != piece_side:
+                continue
+            for move, validation in _piece_moves(board, row, col):
+                if validation["legal"]:
+                    moves.append((move, validation))
+
+    return moves
+
+
+def _piece_moves(board, row, col):
+    directions = _allowed_steps(board[row][col])
+    moves = []
+    # Only return capture moves for a piece
+    if has_jump_from(board, (row, col)):
+        for direction in directions:
+            moves.append(((row, col), (row + (direction*2), col + 2)))
+            moves.append(((row, col), (row + (direction*2), col - 2)))
+    else:
+        for direction in directions:
+            moves.append(((row, col), (row + direction, col + 1)))
+            moves.append(((row, col), (row + direction, col - 1)))
+
+    for move in moves:
+        validation = validate_move(board, move[0], move[1])
+        yield move, validation
+
+# Determines utility of given state for player
+def _utility(board, player):
+    num_light = 0
+    num_dark = 0
+    num_light_kings = 0
+    num_dark_kings = 0
+
+    for row in range(board_size):
+        for col in range(board_size):
+            tile = board[row][col]
+            if tile is None:
+                continue
+            if _side(tile) == "light":
+                num_light += 1
+                if _is_king(tile):
+                    num_light -= 1
+                    num_light_kings += 1
+            else:
+                num_dark += 1
+                if _is_king(tile):
+                    num_dark -= 1
+                    num_dark_kings += 1
+    if player == "CPU":
+        return ((5*num_dark) - (6*num_light)) + ((9*num_dark_kings) - (8*num_light_kings))
+    else:
+        return ((5*num_light) - (6*num_dark)) + ((9*num_light_kings) - (8*num_dark_kings))
+
+def _terminal_test(board, player):
+    return sum(1 for _ in _game_actions(board, player)) == 0
 
 # Check if a piece at position has any capturing jumps
 def has_jump_from(board, position):

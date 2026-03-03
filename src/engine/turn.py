@@ -1,11 +1,11 @@
-current_side = "dark"
+current_side = "light"
 
 def side_to_move():
 	return current_side
 
 def reset_turns():
 	global current_side
-	current_side = "dark"
+	current_side = "light"
 
 def switch_turn():
 	global current_side
