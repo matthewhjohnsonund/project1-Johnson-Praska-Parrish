@@ -155,6 +155,7 @@ def _game_actions(board, player):
         piece_side = "dark"
 
     moves = []
+    must_jump = any_jump_for_side(board, piece_side)
 
     for row in range(board_size):
         for col in range(board_size):
@@ -162,7 +163,10 @@ def _game_actions(board, player):
             if tile is None or _side(tile) != piece_side:
                 continue
             for move, validation in _piece_moves(board, row, col):
-                if validation["legal"]:
+                if must_jump:
+                    if validation["legal"] and validation["captured"]:
+                        moves.append((move, validation))
+                elif validation["legal"]:
                     moves.append((move, validation))
 
     return moves
