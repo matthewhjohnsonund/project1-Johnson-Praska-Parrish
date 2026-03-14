@@ -96,16 +96,17 @@ def apply_move(board, start, end):
 
 # alpha beta cutoff search to determine best move for the cpu
 def cpu_move(board):
-    def max_value(state, alpha, beta, depth):
+    def max_value(state, alpha, beta, depth, forced_piece=None):
         if _terminal_test(state, "CPU") or depth == 5:
             return _utility(state, "CPU")
         v = -math.inf
-        for move, validation in _game_actions(state, "CPU"):
+        for move in _game_actions(state, "CPU", forced_piece):
             new_state = copy.deepcopy(state)
-            apply_move(new_state, move[0], move[1])
+            validation = apply_move(new_state, move[0], move[1])
+
             # If capture move is available after a capture move, do not increase depth and treat it as one state
             if validation["captured"] and has_jump_from(new_state, move[1]):
-                v = max(v, max_value(new_state, alpha, beta, depth))
+                v = max(v, max_value(new_state, alpha, beta, depth, move[1]))
             else:
                 v = max(v, min_value(new_state, alpha, beta, depth + 1))
             if v >= beta:
@@ -113,15 +114,16 @@ def cpu_move(board):
             alpha = max(alpha, v)
         return v
 
-    def min_value(state, alpha, beta, depth):
+    def min_value(state, alpha, beta, depth, forced_piece=None):
         if _terminal_test(state, "HUMAN") or depth == 5:
             return _utility(state, "CPU")
         v = math.inf
-        for move, validation in _game_actions(state, "HUMAN"):
+        for move in _game_actions(state, "HUMAN", forced_piece):
             new_state = copy.deepcopy(state)
-            apply_move(new_state, move[0], move[1])
+            validation = apply_move(new_state, move[0], move[1])
+
             if validation["captured"] and has_jump_from(new_state, move[1]):
-                v = min(v, min_value(new_state, alpha, beta, depth))
+                v = min(v, min_value(new_state, alpha, beta, depth, move[1]))
             else:
                 v = min(v, max_value(new_state, alpha, beta, depth + 1))
 
@@ -133,23 +135,22 @@ def cpu_move(board):
     best_score = -math.inf
     beta = math.inf
     best_action = None
-    for move, validation in _game_actions(board, "CPU"):
+    for move in _game_actions(board, "CPU", None):
         new_state = copy.deepcopy(board)
-        apply_move(new_state, move[0], move[1])
+        validation = apply_move(new_state, move[0], move[1])
         if validation["captured"] and has_jump_from(new_state, move[1]):
-            v = max_value(new_state, best_score, beta, 1)
+            v = max_value(new_state, best_score, beta, 1, move[1])
         else:
             v = min_value(new_state, best_score, beta, 1)
         if v > best_score:
             best_score = v
             best_action = move
 
-    print("Best action:", best_action)
     time.sleep(1)
     return best_action, apply_move(board, best_action[0], best_action[1])
 
 # Helper function to create valid actions for a player given the board
-def _game_actions(board, player):
+def _game_actions(board, player, forced_piece=None):
     piece_side = "light"
     if player == "CPU":
         piece_side = "dark"
@@ -159,15 +160,19 @@ def _game_actions(board, player):
 
     for row in range(board_size):
         for col in range(board_size):
+
+            if forced_piece and (row, col) != forced_piece:
+                continue
+
             tile = board[row][col]
             if tile is None or _side(tile) != piece_side:
                 continue
             for move, validation in _piece_moves(board, row, col):
                 if must_jump:
                     if validation["legal"] and validation["captured"]:
-                        moves.append((move, validation))
+                        moves.append(move)
                 elif validation["legal"]:
-                    moves.append((move, validation))
+                    moves.append(move)
 
     return moves
 
